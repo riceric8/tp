@@ -58,6 +58,10 @@ CupidMaxxing is a **desktop application for managing contacts, optimized for use
 * Parameters can be in any order.<br>
   For example, if the command specifies `n/NAME p/PHONE_NUMBER`, `p/PHONE_NUMBER n/NAME` is also acceptable.
 
+* To use text that looks like a prefix inside a value, such as `s/o` in a name, put the whole value in double quotes.<br>
+  For example, `n/"Ravi s/o Kumar"` records the name `Ravi s/o Kumar`; the quotes are not saved. The closing `"` must be
+  followed by a space or the end of the command. Quotes do not allow `{`, `}`, `<` or `>` inside a value.
+
 * Extraneous parameters for commands that take no parameters, such as `help`, `list`, `exit`, and `clear`, are ignored.<br>
   For example, `help 123` is interpreted as `help`.
 
@@ -147,7 +151,7 @@ Format: `edit INDEX [n/NAME] [p/PHONE] [e/EMAIL] [a/ADDRESS] [age/AGE] [s/SMOKIN
   `g/nb` to change gender; empty `g/` clears it, and omitting `g/` preserves it.
 * When editing tags, all of the person's existing tags are removed; adding tags is not cumulative.
 * To remove all of a person's tags, enter `t/` without a tag after it.
-* Use `s/yes` or `s/no` to update smoking status. Omitting `s/` preserves the existing status. Clearing a recorded smoking status through a command is not supported yet; an empty `s/` is rejected.
+* Use `s/yes` or `s/no` to update smoking status. Omitting `s/` preserves the existing status, and an empty `s/` clears it to *not set*.
 * Use `rg/RELATIONSHIP_GOAL` to update the relationship goal. Omitting `rg/` preserves the existing goal, and `rg/` with no value clears it.
 
 Examples:
@@ -160,6 +164,8 @@ Examples:
 *  `edit 3 rg/` Clears the 3rd displayed client's relationship goal.
 * `edit 1 g/nb` changes the first displayed client's gender to non-binary.
 * `edit 1 g/` clears that client's gender.
+* `edit 2 s/` clears the 2nd displayed client's smoking status.
+* `edit 1 n/"Ravi s/o Kumar"` changes the name to `Ravi s/o Kumar`; the quotes keep `s/o` in the name.
 
 | Error handled | Message shown |
 | --- | --- |
@@ -292,59 +298,113 @@ Example: `list` followed by `match 1 3` assesses the first and third clients wit
 
 ### Organising clients into groups: `grp` and `show`
 
-Keep named collections of clients, such as event invitations or a shortlist. A client can belong to
-several groups. Membership is shown as a separate `Group: NAME` badge; ordinary `t/` tags are unchanged.
+Keep named collections of clients, such as event invitations or a shortlist. A client can belong to several groups.
+Each client card lists its groups as chips after **Groups**, separately from the chips for ordinary `t/` tags.
 
-Action | Format | Example
--------|--------|--------
-Create a group or add members | `grp NAME add INDEX [MORE_INDEXES]` | `grp VIP add 1 3`
-Remove members | `grp NAME remove INDEX [MORE_INDEXES]` | `grp VIP remove 2`
-Create a matching shortlist | `grp NAME matches INDEX` | `grp Candidates matches 1`
-Show a group's members | `show NAME` | `show VIP`
+* Group names are case-insensitive; see [Group name](#group-name) for the accepted names.
+* Every `INDEX` refers to the **currently displayed list**, including after `find`, `find match/` or `show`.
+  Separate several indexes with spaces, not commas.
+* Commands and operation words are lowercase: `grp`, `add`, `remove`, `matches` and `show`.
+* Editing a client, including their name, keeps their memberships. `delete INDEX` removes the client from every
+  group, and re-adding them later does not restore old memberships. `clear` removes all clients and all groups.
+* Groups are saved automatically with the clients. Renaming a group, deleting a whole group and listing all group
+  names are not supported in this version.
 
-**Names and indexes**
+#### Adding clients to a group: `grp NAME add`
 
-* A name has 1–30 ASCII letters (`A`–`Z`, `a`–`z`), digits, hyphens or underscores, and starts with a letter or digit.
-  Spaces and prefixes such as `/` or `g/` are not accepted. Names are case-insensitive: `VIP` and `vip` identify
-  the same group. The spelling used when the group was created is retained on badges and in feedback.
-* Every index refers to the **currently displayed list**, including after `find` or `show`. Use positive integers
-  separated by spaces, not commas. A repeated, invalid or out-of-range index rejects the entire command.
-* Commands and operation words are lowercase (`grp`, `add`, `remove`, `matches`, `show`).
+Adds the selected clients to a group, creating the group if it does not exist yet.
 
-**Adding, removing and showing members**
+Format: `grp NAME add INDEX [MORE_INDEXES]…​`
 
-* `add` creates a missing group with the selected clients. One member is sufficient. For an existing group,
-  it adds the selected clients; if any selected client is already a member, nothing is added.
-* `remove` requires an existing group. If any selected client is not a member, nothing is removed.
-  Removing membership does **not** delete the client. Removing the last member retains an empty group.
-* `show` searches all clients and displays the group's members in address-book order. An unknown group reports
-  an error and leaves the current list unchanged; an empty group shows zero clients. `list` restores all clients.
-* Membership changes update the list immediately when that group is being shown. Otherwise, they leave the
-  current list unchanged. To add someone outside a shown group, run `list` or `find` first.
-* Editing a client, including their name or tags, preserves their memberships. The existing `edit` and `add`
-  commands restore the full client list; use `show NAME` again to return to the group.
-  `delete INDEX` deletes the client record and removes it from every group. Re-adding that client later does
-  not restore old memberships. `clear` removes both all clients and all groups.
-* Group renaming, deleting an entire group, and listing all group names are not supported in this version.
+* One client is enough to create a group.
+* If any selected client is already a member, the whole command is rejected and nobody is added.
+* The displayed list does not change, unless that group is being shown. To add someone who is not in a shown group,
+  run `list` or `find` first.
 
-Example: With at least three clients displayed, run `grp VIP add 1 3`, then `show VIP`.
-The two members now have displayed indexes 1 and 2. `grp VIP remove 2` removes the second displayed member
-from VIP, leaving their client record intact. `list` shows all clients again.
+Examples:
 
-**Creating a matching shortlist**
+* `grp VIP add 1 3` adds the 1st and 3rd displayed clients to VIP, creating VIP if needed.
+* `find n/Alice` followed by `grp VIP add 1` adds Alice to VIP by name.
 
-`grp Candidates matches 1` creates a **new** group using the same eligibility rule as `find match/1`:
-it checks the first displayed client against every other client and excludes known dealbreaker violations.
-The source client is not included. Candidates with insufficient information are included, so group membership
-is **not a guarantee of compatibility**. Unmet preferences alone do not exclude a candidate.
+| Error handled | Message shown |
+| --- | --- |
+| No index, or a missing or misspelt operation word | `Invalid command format!` followed by the `grp` usage |
+| An index is not a positive integer, such as `0`, `-1` or `1,2` | `Index must be a positive integer.` |
+| The same index is given twice | `Specify each displayed index only once.` |
+| An index is beyond the displayed list | `The person index provided is invalid.` |
+| The group name is invalid | `Group names must contain 1-30 ASCII letters, digits, hyphens or underscores, beginning with a letter or digit (no spaces).` |
+| A selected client is already a member | `A selected client already belongs to group NAME.` |
 
-The command takes exactly one displayed index. An existing group name or no eligible candidates causes an
-error without changing any group. The current displayed list stays unchanged; run `show Candidates` to see
-the members in address-book order, rather than the preference ranking used by `find match/1`.
+#### Removing clients from a group: `grp NAME remove`
 
-Membership is a snapshot: adding clients or changing dating attributes and criteria does not automatically
-recompute the shortlist. Edits still update the member's details, and deleting a member removes them from
-the group. Use `add`/`remove` to adjust membership or create another shortlist with a new name.
+Removes the selected clients from an existing group.
+
+Format: `grp NAME remove INDEX [MORE_INDEXES]…​`
+
+* If any selected client is not a member, the whole command is rejected and nobody is removed.
+* Removing a client from a group does **not** delete the client. Removing the last member keeps an empty group.
+* While the group is shown, removed clients disappear from the list straight away.
+
+Examples:
+
+* `show VIP` followed by `grp VIP remove 2` removes the 2nd shown member from VIP.
+* `grp VIP remove 1 2` removes the 1st and 2nd displayed clients from VIP.
+
+| Error handled | Message shown |
+| --- | --- |
+| No index, or a missing or misspelt operation word | `Invalid command format!` followed by the `grp` usage |
+| An index is invalid, repeated or beyond the displayed list | The same messages as for `grp NAME add` |
+| The group does not exist | `Unknown group: NAME` |
+| A selected client is not a member | `A selected client does not belong to group NAME.` |
+
+#### Creating a group from matches: `grp NAME matches`
+
+Creates a **new** group containing every client that could be compatible with the selected client.
+
+Format: `grp NAME matches INDEX`
+
+* The group gets the same clients that `find match/INDEX` would list: everyone except the selected client and
+  anyone ruled out by a known dealbreaker violation in either direction.
+* Clients with unknown details are included, so membership is **not a guarantee of compatibility**. Unmet
+  preferences alone do not exclude anyone.
+* The group is a snapshot. Later changes to clients' details or criteria do not change who is in it; use
+  `grp NAME add` or `grp NAME remove` to adjust it.
+* The displayed list does not change. Run `show NAME` to see the members, in address-book order rather than the
+  ranking used by `find match/`.
+
+Example:
+
+* `grp Candidates matches 1` followed by `show Candidates`.
+
+| Error handled | Message shown |
+| --- | --- |
+| No index, or more than one index | `Invalid command format!` followed by the `grp` usage |
+| The index is invalid or beyond the displayed list | `Index must be a positive integer.` or `The person index provided is invalid.` |
+| A group with that name already exists | `Group already exists: NAME` |
+| No other client is eligible | `No matching candidates; no group was created.` |
+
+#### Showing a group: `show`
+
+Shows the members of a group, in address-book order.
+
+Format: `show NAME`
+
+* An empty group shows zero clients.
+* While a group is shown, the list follows membership changes. `list`, `find`, `add` and `edit` return to a
+  normal list; run `show NAME` again to go back to the group.
+
+Example:
+
+* With Amy Tan, Ben Lim, Chris Ong and Dana Koh listed in that order, `grp Shortlist add 2 3` and `grp VIP add 2`
+  followed by `show Shortlist` display only Ben and Chris. Ben's card shows both of his groups:
+
+![Group members shown with Groups chips on each card](images/ug/groupShow.png)
+
+| Error handled | Message shown |
+| --- | --- |
+| No name, or more than one word | `Invalid command format!` followed by `show NAME: Display a named group's clients. Example: show VIP` |
+| The group name is invalid | The group name constraint shown above |
+| The group does not exist | `Unknown group: NAME`; the displayed list is unchanged |
 
 ### Parameter list
 
@@ -383,11 +443,12 @@ accepted and normalized to `MIN-MAX`.
 
 `s/SMOKING` records the client's own smoking habit. Use `s/yes` for a smoker or `s/no` for a
 non-smoker; values are case-insensitive and surrounding whitespace is ignored. Omit the field if the
-status is unknown. Older records without this field display `Not specified`.
+status is unknown: the card then shows Smoking as *not set*, and command feedback shows `Not specified`. Older
+records without this field load the same way. Unknown does not mean non-smoker.
 
 | Valid values | Bad values |
 | --- | --- |
-| `s/yes`, `s/no`, `s/YES` | `s/unknown`, `s/yes,no` |
+| `s/yes`, `s/no`, `s/YES`, `s/ no` | `s/unknown`, `s/y`, `s/yes,no`; an empty `s/` on `add` or `find` |
 
 | Scope | Syntax | Meaning |
 | ----- | ------ | ------- |
@@ -396,9 +457,12 @@ status is unknown. Older records without this field display `Not specified`.
 | Partner dealbreaker | `<s/yes>` or `<s/no>` | A smoking habit the partner **must not have**. |
 | Search | `find s/yes` or `find s/no` | Search the client's own smoking habit only. |
 
-* The outer `s/` may occur once only and must have a value. `edit INDEX s/yes` or `edit INDEX s/no`
-  replaces the recorded status; omitting `s/` preserves it. Clearing an outer smoking status is not
-  supported.
+* The outer `s/` may occur once only. On `add` it must have a value. `edit INDEX s/yes` or
+  `edit INDEX s/no` replaces the recorded status, `edit INDEX s/` clears it to *not set*, and omitting `s/`
+  preserves it.
+* An unquoted ` s/` always starts the smoking status, even inside another value. For example,
+  `n/Ravi s/o Kumar` is read as the name `Ravi` and the invalid smoking status `o Kumar`, and is rejected.
+  Put such a value in quotes instead: `n/"Ravi s/o Kumar"`. See the notes about the command format.
 * Each preference or dealbreaker block may contain `s/` once only and may contain only `yes` or `no`.
   On `edit`, a new value adds the criterion when absent or replaces its previous value. Repeating the
   identical value leaves it unchanged and reports a duplicate warning. An empty criterion `s/` has no
@@ -516,6 +580,19 @@ Keyword | Relationship goal
   whole bucket.
 * No relationship goal can be both preferred and excluded, including criteria retained from an earlier
   edit. If even one goal conflicts, the command is rejected and leaves the record unchanged.
+
+#### Group name
+
+`NAME` in `grp NAME ...` and `show NAME` identifies a named group. A name has 1–30 ASCII letters, digits, hyphens or
+underscores, and starts with a letter or digit.
+
+| Valid values | Bad values |
+| --- | --- |
+| `VIP`, `vip`, `Shortlist_2`, `a-1` | `-VIP`, `_VIP`, `My VIP` (contains a space), `g/VIP`, a name longer than 30 characters |
+
+* Names are case-insensitive: `VIP` and `vip` identify the same group.
+* The spelling used when the group was created is kept on the cards and in feedback.
+* Group names are separate from ordinary `t/` tags, so a tag and a group may share a name.
 
 ### Deleting a person: `delete`
 
