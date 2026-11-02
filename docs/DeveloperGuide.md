@@ -24,7 +24,7 @@ Declaration of use of AI:
 * @riceric8 used Codex to help with writing of functional code, tests, generating UML diagrams, and parts of the 
    User Guide and Developer Guide.
 * @codeforce233 used Claude Code to help with writing of functional code, tests and parts 
-   of the User Guide and Documentation Guide
+   of the User Guide and Developer Guide
 --------------------------------------------------------------------------------------------------------------------
 
 ## **Setting up, getting started**
